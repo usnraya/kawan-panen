@@ -1,6 +1,6 @@
 export function SimulationBanner() {
   return (
-    <div className="bg-amber-400 px-4 py-1.5 text-center text-[11px] font-bold tracking-[0.14em] text-amber-950">
+    <div className="border-t border-white/5 px-4 py-2 text-center text-[9px] font-medium tracking-[0.08em] text-emerald-400/60">
       DATA SIMULASI — Bukan data operasional nyata
     </div>
   );

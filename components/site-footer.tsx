@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { SimulationBanner } from "@/components/simulation-banner";
 
 export function SiteFooter() {
   return (
@@ -34,6 +35,7 @@ export function SiteFooter() {
       <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-emerald-300 sm:px-6 lg:px-8">
         © 2026 Kawan Panen. Semua hak dilindungi.
       </div>
+      <SimulationBanner />
     </footer>
   );
 }

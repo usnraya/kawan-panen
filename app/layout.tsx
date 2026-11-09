@@ -3,7 +3,6 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { RegisterServiceWorker } from "@/components/register-service-worker";
-import { SimulationBanner } from "@/components/simulation-banner";
 
 const poppins = Poppins({
   variable: "--font-sans",
@@ -38,7 +37,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="id" className={`${poppins.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-zinc-50">
-        <SimulationBanner />
         {children}
         <RegisterServiceWorker />
         <InstallAppPrompt />
