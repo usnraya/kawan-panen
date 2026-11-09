@@ -3,6 +3,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
 import { getProfileForRole } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CoordinatorNav } from "@/components/coordinator-nav";
 import { DisputeActions } from "./dispute-actions";
 
 export const instant = false;
@@ -24,6 +25,7 @@ export default async function CoordinatorDisputesPage() {
     <div className="flex min-h-screen flex-col bg-[#f7faf7]">
       <SiteHeader />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <CoordinatorNav current="/coordinator/disputes" />
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">Operasional koordinator</p>
         <h1 className="mt-2 text-3xl font-extrabold text-emerald-950">Komplain &amp; penyelesaian</h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-600">Tinjau komplain buyer. Refund dicatat sebagai transaksi ledger berimbang dan diproses idempotent.</p>

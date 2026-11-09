@@ -4,6 +4,7 @@ import { getProfileForRole } from "@/lib/auth";
 import { createClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CoordinatorNav } from "@/components/coordinator-nav";
 import { Badge } from "@/components/ui/badge";
 import { VerifyButtons } from "./verify-buttons";
 import { QcForm } from "./qc-form";
@@ -73,6 +74,7 @@ export default async function CoordinatorHubPage() {
     <div className="flex flex-1 flex-col bg-[#f7faf7]">
       <SiteHeader />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <CoordinatorNav current="/coordinator/hub" />
         <p className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700"><ShieldCheck className="size-4" /> Koordinator</p>
         <h1 className="mt-2 text-3xl font-extrabold text-emerald-950">Verifikasi hub &amp; QC</h1>
         <p className="mt-2 text-zinc-600">Setujui harga/stok petani sebelum tampil ke pembeli, lalu catat hasil timbang di hub.</p>

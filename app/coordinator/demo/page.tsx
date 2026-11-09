@@ -5,6 +5,7 @@ import { getProfileForRole } from "@/lib/auth";
 import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CoordinatorNav } from "@/components/coordinator-nav";
 import { Badge } from "@/components/ui/badge";
 import { DemoControls } from "./demo-controls";
 
@@ -61,6 +62,7 @@ export default async function CoordinatorDemoPage() {
     <div className="flex flex-1 flex-col bg-[#f7faf7]">
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <CoordinatorNav current="/coordinator/demo" />
         <Link href="/coordinator/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800 hover:underline"><ArrowLeft className="size-4" /> Kembali ke dasbor</Link>
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div>

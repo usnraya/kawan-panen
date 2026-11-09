@@ -3,6 +3,7 @@ import { Activity, BarChart3, ShieldCheck } from "lucide-react";
 import { getProfileForRole } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CoordinatorNav } from "@/components/coordinator-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export default async function CoordinatorDashboardPage() {
     <div className="flex flex-1 flex-col bg-[#f7faf7]">
       <SiteHeader />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+      <CoordinatorNav current="/coordinator/dashboard" />
       <p className="text-sm font-semibold text-emerald-700">Koordinator</p>
       <h1 className="mt-1 text-3xl font-extrabold text-emerald-950">Dasbor koordinasi</h1>
       <p className="mt-3 text-zinc-600">Pantau kesehatan pasokan dan kesiapan alokasi dari satu tempat.</p>

@@ -11,7 +11,7 @@ export function SiteFooter() {
             <Image src="/kawan-panen-logo.png" alt="Kawan Panen" width={1206} height={489} className="h-14 w-auto object-contain sm:h-16" />
           </div>
           <p className="mt-4 max-w-sm text-sm leading-6 text-emerald-200">
-            Menghubungkan petani dan pembeli di Bali dengan alokasi pasokan yang transparan dan dapat diandalkan.
+           Platform Integrasi Rantai Pasok Pertanian: Pemasaran dan Distribusi Hasil Tani Lokal dengan Harga yang Ditentukan Petani 
           </p>
         </div>
         <div>

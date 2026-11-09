@@ -48,8 +48,13 @@ export async function POST(request: Request) {
   const { data: payment } = await admin.from("payment_transactions").select("order_id, status").eq("midtrans_order_id", payload.order_id).maybeSingle();
   if (!payment) return NextResponse.json({ error: "Order tidak ditemukan." }, { status: 404 });
 
-  const { data: order } = await admin.from("orders").select("status").eq("id", payment.order_id).single();
+  const { data: order } = await admin.from("orders").select("status, total_amount").eq("id", payment.order_id).single();
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan." }, { status: 404 });
+
+  const webhookAmount = Number(payload.gross_amount);
+  if (!Number.isSafeInteger(webhookAmount) || webhookAmount !== Number(order.total_amount)) {
+    return NextResponse.json({ error: "Nominal pembayaran tidak sesuai total pesanan." }, { status: 409 });
+  }
 
   // Midtrans retries are expected. A terminal payment/order is never moved backwards.
   if (payment.status === "RELEASED" || payment.status === "REFUNDED") {
