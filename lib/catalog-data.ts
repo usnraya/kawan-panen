@@ -1,5 +1,20 @@
 export type CatalogCategory = "Sayur" | "Buah" | "Bumbu";
 
+/** Formats a catalog ISO date (YYYY-MM-DD) for Indonesian display, e.g. "12 Nov 2026". */
+export function isCatalogDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+export function formatHarvestDate(iso: string) {
+  if (!isCatalogDate(iso)) throw new Error(`Invalid catalog date: ${iso}`);
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
+}
+
 /** Simulated wholesale minimum for the M7 cart/checkout flow. Shared by client and server code. */
 export const MIN_ORDER_KG = 20;
 export const ORDER_STEP_KG = 5;
@@ -33,7 +48,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kelompok Tani Sejahtera",
     regency: "Bangli",
     availableKg: 300,
-    harvestDate: "12 Nov 2026",
+    harvestDate: "2026-11-12",
     grade: "A",
     image: "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Tomat merah segar dalam keranjang",
@@ -48,7 +63,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kebun Pagi Bali",
     regency: "Tabanan",
     availableKg: 220,
-    harvestDate: "14 Nov 2026",
+    harvestDate: "2026-11-14",
     grade: "A",
     image: "/catalog/sawi-hijau.jpg",
     imageAlt: "Sawi hijau segar dalam keranjang",
@@ -63,7 +78,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Tani Mandiri",
     regency: "Bangli",
     availableKg: 420,
-    harvestDate: "18 Nov 2026",
+    harvestDate: "2026-11-18",
     grade: "A",
     image: "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Kubis hijau segar",
@@ -78,7 +93,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Ladang Bersama",
     regency: "Gianyar",
     availableKg: 180,
-    harvestDate: "20 Nov 2026",
+    harvestDate: "2026-11-20",
     grade: "B",
     image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Tomat segar merah di permukaan kayu",
@@ -93,7 +108,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kelompok Tani Kintamani",
     regency: "Bangli",
     availableKg: 260,
-    harvestDate: "13 Nov 2026",
+    harvestDate: "2026-11-13",
     grade: "A",
     image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Wortel segar dengan daunnya",
@@ -108,7 +123,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Tani Makmur Jaya",
     regency: "Tabanan",
     availableKg: 150,
-    harvestDate: "15 Nov 2026",
+    harvestDate: "2026-11-15",
     grade: "A",
     image: "/catalog/terong-ungu.jpg",
     imageAlt: "Terong ungu segar",
@@ -123,7 +138,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kebun Hidro Baturiti",
     regency: "Tabanan",
     availableKg: 110,
-    harvestDate: "11 Nov 2026",
+    harvestDate: "2026-11-11",
     grade: "A",
     image: "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Selada keriting hijau segar",
@@ -138,7 +153,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kebun Segar Pupuan",
     regency: "Tabanan",
     availableKg: 200,
-    harvestDate: "16 Nov 2026",
+    harvestDate: "2026-11-16",
     grade: "B",
     image: "https://images.unsplash.com/photo-1604977042946-1eecc30f269e?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Timun segar dipotong dan utuh",
@@ -153,7 +168,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Tani Jaya Abadi",
     regency: "Karangasem",
     availableKg: 95,
-    harvestDate: "12 Nov 2026",
+    harvestDate: "2026-11-12",
     grade: "A",
     image: "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Cabai merah segar",
@@ -168,7 +183,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kelompok Tani Bersatu",
     regency: "Bangli",
     availableKg: 140,
-    harvestDate: "17 Nov 2026",
+    harvestDate: "2026-11-17",
     grade: "A",
     image: "https://images.unsplash.com/photo-1508747703725-719777637510?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Bawang merah segar",
@@ -183,7 +198,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Tani Sumber Rejeki",
     regency: "Karangasem",
     availableKg: 120,
-    harvestDate: "19 Nov 2026",
+    harvestDate: "2026-11-19",
     grade: "B",
     image: "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Bawang putih segar",
@@ -198,7 +213,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kebun Rempah Munduk",
     regency: "Buleleng",
     availableKg: 70,
-    harvestDate: "21 Nov 2026",
+    harvestDate: "2026-11-21",
     grade: "A",
     image: "/catalog/jahe-merah.jpg",
     imageAlt: "Jahe merah segar",
@@ -213,7 +228,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kelompok Tani Raja Buah",
     regency: "Jembrana",
     availableKg: 260,
-    harvestDate: "14 Nov 2026",
+    harvestDate: "2026-11-14",
     grade: "A",
     image: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Pisang raja matang",
@@ -228,7 +243,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Kebun Mangga Negara",
     regency: "Jembrana",
     availableKg: 190,
-    harvestDate: "22 Nov 2026",
+    harvestDate: "2026-11-22",
     grade: "A",
     image: "https://images.unsplash.com/photo-1605027990121-cbae9e0642df?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Mangga harum manis segar",
@@ -243,7 +258,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Tani Dataran Tinggi",
     regency: "Bangli",
     availableKg: 130,
-    harvestDate: "20 Nov 2026",
+    harvestDate: "2026-11-20",
     grade: "A",
     image: "https://images.unsplash.com/photo-1601039641847-7857b994d704?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Alpukat mentega belah dua",
@@ -258,7 +273,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     supplier: "Koperasi Jeruk Kintamani",
     regency: "Bangli",
     availableKg: 310,
-    harvestDate: "15 Nov 2026",
+    harvestDate: "2026-11-15",
     grade: "A",
     image: "https://images.unsplash.com/photo-1557800636-894a64c1696f?auto=format&fit=crop&w=900&q=85",
     imageAlt: "Jeruk segar dalam keranjang",

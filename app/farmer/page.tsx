@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, ClipboardList, LineChart, ShieldCheck, Sprout, Users } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { CATALOG_PRODUCTS } from "@/lib/catalog-data";
+import { CATALOG_PRODUCTS, formatHarvestDate } from "@/lib/catalog-data";
 
 const benefits = [
   {
@@ -57,7 +57,7 @@ export default function FarmerLandingPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-emerald-950 via-emerald-950/30 to-transparent" />
               <div className="relative flex min-h-[380px] flex-col justify-between p-6 text-white sm:min-h-[460px] sm:p-8">
                 <div className="flex items-center justify-between"><span className="rounded-full bg-lime-400 px-3 py-1.5 text-xs font-extrabold text-emerald-950">Contoh pasokan</span><span className="rounded-full bg-black/25 px-3 py-1.5 text-xs font-bold backdrop-blur">Grade {featured.grade}</span></div>
-                <div><p className="text-sm font-semibold text-lime-300">Data yang dilihat pembeli</p><h2 className="mt-2 text-3xl font-extrabold">{featured.name}</h2><p className="mt-3 text-sm leading-6 text-emerald-100">{featured.availableKg} kg tersedia · Panen {featured.harvestDate}</p><div className="mt-5 flex items-center gap-2 text-sm font-semibold text-white"><ShieldCheck className="size-4 text-lime-300" /> Informasi pasokan lebih transparan</div></div>
+                <div><p className="text-sm font-semibold text-lime-300">Data yang dilihat pembeli</p><h2 className="mt-2 text-3xl font-extrabold">{featured.name}</h2><p className="mt-3 text-sm leading-6 text-emerald-100">{featured.availableKg} kg tersedia · Panen {formatHarvestDate(featured.harvestDate)}</p><div className="mt-5 flex items-center gap-2 text-sm font-semibold text-white"><ShieldCheck className="size-4 text-lime-300" /> Informasi pasokan lebih transparan</div></div>
               </div>
             </div>
           </div>

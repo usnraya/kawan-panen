@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, CalendarDays, CheckCircle2, MapPin, PackageCheck, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
-import { CATALOG_PRODUCTS } from "@/lib/catalog-data";
+import { CATALOG_PRODUCTS, formatHarvestDate } from "@/lib/catalog-data";
 import { createClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -39,7 +39,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="flex items-center justify-between gap-4"><span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">Grade {product.grade}</span><span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><CheckCircle2 className="size-4" /> Dalam katalog</span></div>
             <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-emerald-950">{product.name}</h1>
             <p className="mt-4 text-base leading-7 text-zinc-600">{product.description}</p>
-            <div className="mt-7 grid gap-3 border-y border-zinc-100 py-5 text-sm"><p className="flex items-center gap-3 text-zinc-700"><PackageCheck className="size-5 text-emerald-700" /><span><strong className="text-emerald-950">{product.availableKg} kg</strong> indikasi katalog</span></p><p className="flex items-center gap-3 text-zinc-700"><CalendarDays className="size-5 text-emerald-700" /><span>Perkiraan panen <strong className="text-emerald-950">{product.harvestDate}</strong></span></p><p className="flex items-center gap-3 text-zinc-700"><MapPin className="size-5 text-emerald-700" /><span>Asal panen <strong className="text-emerald-950">{product.regency}</strong></span></p></div>
+            <div className="mt-7 grid gap-3 border-y border-zinc-100 py-5 text-sm"><p className="flex items-center gap-3 text-zinc-700"><PackageCheck className="size-5 text-emerald-700" /><span><strong className="text-emerald-950">{product.availableKg} kg</strong> indikasi katalog</span></p><p className="flex items-center gap-3 text-zinc-700"><CalendarDays className="size-5 text-emerald-700" /><span>Perkiraan panen <strong className="text-emerald-950">{formatHarvestDate(product.harvestDate)}</strong></span></p><p className="flex items-center gap-3 text-zinc-700"><MapPin className="size-5 text-emerald-700" /><span>Asal panen <strong className="text-emerald-950">{product.regency}</strong></span></p></div>
             <div className="mt-6 rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Pemasok</p><p className="mt-1 font-bold text-emerald-950">{product.supplier}</p><p className="mt-1 text-sm text-emerald-800">Pemasok aktif di jaringan Kawan Panen</p></div>
             <p className="mt-6 text-2xl font-extrabold text-emerald-950">{currency.format(product.pricePerKg)} <span className="text-sm font-semibold text-zinc-500">/ kg</span></p>
             <div className="mt-4"><AddToCart productId={product.id} availableKg={product.availableKg} /></div>

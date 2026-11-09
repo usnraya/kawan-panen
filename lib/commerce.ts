@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
-import { CATALOG_PRODUCTS, MIN_ORDER_KG, type CatalogProduct } from "@/lib/catalog-data";
+import { CATALOG_PRODUCTS, isCatalogDate, MIN_ORDER_KG, type CatalogProduct } from "@/lib/catalog-data";
 import { previewMatch, runMatching } from "@/app/buyer/requests/actions";
 import { assertPaymentItemsTotal, buildPaymentItems, calcOrderLineFinance, type CommerceSettings } from "@/lib/finance";
 import { getPaymentProvider } from "@/lib/payments";
@@ -214,11 +214,11 @@ function readCommerceSettings(value: unknown): CommerceSettings {
   };
 }
 
-function dateForProduct(product: CatalogProduct) {
-  const parsed = new Date(product.harvestDate);
-  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
-  const fallback = new Date(Date.now() + 7 * 86_400_000);
-  return fallback.toISOString().slice(0, 10);
+export function dateForProduct(product: CatalogProduct) {
+  if (!isCatalogDate(product.harvestDate)) {
+    throw new CommerceError(`Tanggal panen ${product.name} tidak valid.`);
+  }
+  return product.harvestDate;
 }
 
 async function getCommerceSettings(admin: AdminClient) {

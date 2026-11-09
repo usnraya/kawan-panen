@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MapPin, Search } from "lucide-react";
-import { CATALOG_PRODUCTS, type CatalogCategory } from "@/lib/catalog-data";
+import { CATALOG_PRODUCTS, formatHarvestDate, type CatalogCategory } from "@/lib/catalog-data";
 
 const CATEGORIES: Array<CatalogCategory | "Semua"> = ["Semua", "Sayur", "Bumbu", "Buah"];
 const SORTS = [
@@ -95,7 +95,7 @@ export function CatalogBrowser() {
             <div className="p-4">
               <p className="text-lg font-extrabold text-emerald-950">{product.name}</p>
               <p className="mt-1 text-sm text-zinc-500">{product.supplier}</p>
-              <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400"><MapPin className="size-3.5" /> {product.regency} · Panen {product.harvestDate}</p>
+              <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400"><MapPin className="size-3.5" /> {product.regency} · Panen {formatHarvestDate(product.harvestDate)}</p>
               <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3">
                 <span className="text-sm font-bold text-emerald-700">{product.availableKg} kg tersedia</span>
                 <span className="text-xs font-semibold text-emerald-800 group-hover:underline">Lihat detail</span>

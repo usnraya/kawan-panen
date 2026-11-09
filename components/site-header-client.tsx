@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { Heart, ShoppingCart } from "lucide-react";
 
 const navItems = [
@@ -11,7 +12,7 @@ const navItems = [
   { href: "/farmer", label: "Untuk petani", matches: (pathname: string) => pathname.startsWith("/farmer") },
 ];
 
-export function SiteHeaderClient({ cartCount }: { cartCount: number }) {
+export function SiteHeaderClient({ cartCount, account }: { cartCount: number; account: ReactNode }) {
   const pathname = usePathname();
 
   return (
@@ -55,7 +56,7 @@ export function SiteHeaderClient({ cartCount }: { cartCount: number }) {
               </span>
             )}
           </Link>
-          <Link href="/login" className="ml-1 rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-900">Masuk</Link>
+          {account}
         </div>
       </div>
     </header>
