@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useState, type MouseEvent, type ReactNode } from "react";
 import { AlertTriangle, Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { removeItem, updateItem, type CartActionState } from "./actions";
@@ -14,15 +14,39 @@ type CartClientProps = { lines: CartLine[]; total: number; checkoutSlot: ReactNo
 const currency = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 function LineActions({ line }: { line: CartLine }) {
-  const [, action, pending] = useActionState<CartActionState, FormData>(updateItem, null);
+  const [state, action, pending] = useActionState<CartActionState, FormData>(updateItem, null);
+  const [qty, setQty] = useState(line.qtyKg);
+
+  function step(delta: number, event: MouseEvent<HTMLButtonElement>) {
+    const next = Math.min(line.availableKg, Math.max(MIN_ORDER_KG, qty + delta));
+    setQty(next);
+    event.currentTarget.form?.requestSubmit();
+  }
 
   return (
-    <form action={action} className="flex items-center gap-2">
-      <input type="hidden" name="productId" value={line.productId} />
-      <button type="submit" name="qtyKg" value={Math.max(MIN_ORDER_KG, line.qtyKg - ORDER_STEP_KG)} disabled={pending || line.qtyKg <= MIN_ORDER_KG} aria-label={`Kurangi ${line.name}`} className="rounded-lg border border-zinc-200 p-1.5 text-zinc-600 disabled:opacity-40"><Minus className="size-4" /></button>
-      <span className="min-w-12 text-center text-sm font-bold text-emerald-950">{line.qtyKg} kg</span>
-      <button type="submit" name="qtyKg" value={Math.min(line.availableKg, line.qtyKg + ORDER_STEP_KG)} disabled={pending || line.qtyKg >= line.availableKg} aria-label={`Tambah ${line.name}`} className="rounded-lg border border-zinc-200 p-1.5 text-zinc-600 disabled:opacity-40"><Plus className="size-4" /></button>
-    </form>
+    <div className="flex flex-col gap-1">
+      <form action={action} className="flex items-center gap-2">
+        <input type="hidden" name="productId" value={line.productId} />
+        <input type="hidden" name="qtyKg" value={qty} readOnly />
+        <button type="submit" onClick={(event) => step(-ORDER_STEP_KG, event)} disabled={pending || qty <= MIN_ORDER_KG} aria-label={`Kurangi ${line.name}`} className="rounded-lg border border-zinc-200 p-1.5 text-zinc-600 transition active:scale-95 active:bg-emerald-100 disabled:opacity-40 disabled:active:scale-100"><Minus className="size-4" /></button>
+        <input
+          type="number"
+          min={MIN_ORDER_KG}
+          max={line.availableKg}
+          step={ORDER_STEP_KG}
+          value={qty}
+          onChange={(event) => setQty(Number(event.target.value))}
+          onBlur={(event) => {
+            if (Number(event.target.value) !== line.qtyKg) event.currentTarget.form?.requestSubmit();
+          }}
+          disabled={pending}
+          aria-label={`Jumlah ${line.name} (kg)`}
+          className="h-9 w-16 rounded-lg border border-zinc-200 text-center text-sm font-bold text-emerald-950 outline-none focus-visible:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-700/30"
+        />
+        <button type="submit" onClick={(event) => step(ORDER_STEP_KG, event)} disabled={pending || qty >= line.availableKg} aria-label={`Tambah ${line.name}`} className="rounded-lg border border-zinc-200 p-1.5 text-zinc-600 transition active:scale-95 active:bg-emerald-100 disabled:opacity-40 disabled:active:scale-100"><Plus className="size-4" /></button>
+      </form>
+      {state?.error && <p role="alert" className="text-xs font-semibold text-red-600">{state.error}</p>}
+    </div>
   );
 }
 

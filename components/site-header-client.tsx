@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Heart, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Home", matches: (pathname: string) => pathname === "/" },
@@ -43,7 +43,6 @@ export function SiteHeaderClient({ cartCount, account }: { cartCount: number; ac
           })}
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
-          <Link href="/buyer/availability" aria-label="Daftar keinginan" className="hidden rounded-xl p-2.5 text-zinc-500 hover:bg-emerald-50 hover:text-emerald-800 sm:block"><Heart className="size-5" /></Link>
           <Link
             href="/buyer/cart"
             aria-label={cartCount > 0 ? `Keranjang, ${cartCount} produk` : "Keranjang"}

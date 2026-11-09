@@ -76,7 +76,7 @@ export default async function FarmerForecastsPage() {
       )}
 
       {forecasts.length > 0 && (
-        <div className="mt-8 overflow-hidden rounded-2xl border border-emerald-950/10 bg-white shadow-sm">
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-emerald-950/10 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-emerald-50 text-emerald-900">
               <tr>

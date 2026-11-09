@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { LogOut } from "lucide-react";
 import { getCurrentProfile, ROLE_HOME } from "@/lib/auth";
-import { signOut } from "@/app/login/actions";
+import { LogoutButton } from "@/components/logout-button";
 
 /**
  * Server component: reads the auth cookie, so it must stay behind a <Suspense>
@@ -24,18 +23,14 @@ export async function AccountStatus() {
     <div className="ml-1 flex items-center gap-1.5">
       <Link
         href={ROLE_HOME[profile.role]}
-        className="flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-200"
+        className="flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/40"
       >
         <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-xs font-extrabold text-white">
           {label.slice(0, 1).toUpperCase()}
         </span>
         <span className="hidden max-w-32 truncate sm:inline">{label}</span>
       </Link>
-      <form action={signOut}>
-        <button type="submit" aria-label="Keluar" className="rounded-xl p-2.5 text-zinc-500 transition hover:bg-emerald-50 hover:text-emerald-800">
-          <LogOut className="size-5" />
-        </button>
-      </form>
+      <LogoutButton />
     </div>
   );
 }

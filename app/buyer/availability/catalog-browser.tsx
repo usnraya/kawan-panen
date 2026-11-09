@@ -49,12 +49,14 @@ export function CatalogBrowser() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Cari produk, pemasok, atau wilayah"
+            aria-label="Cari produk, pemasok, atau wilayah"
             className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-sm text-zinc-700 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </div>
         <select
           value={sort}
           onChange={(event) => setSort(event.target.value as (typeof SORTS)[number]["id"])}
+          aria-label="Urutkan produk"
           className="h-11 rounded-xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none focus:border-emerald-600"
         >
           {SORTS.map((option) => (
@@ -63,19 +65,21 @@ export function CatalogBrowser() {
         </select>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {CATEGORIES.map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setCategory(item)}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+            aria-pressed={category === item}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/40 ${
               category === item ? "bg-emerald-800 text-white" : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:text-emerald-800"
             }`}
           >
             {item}
           </button>
         ))}
+        <span className="ml-2 text-xs font-semibold text-zinc-400">{products.length} produk</span>
       </div>
 
       {products.length === 0 && (
@@ -86,9 +90,9 @@ export function CatalogBrowser() {
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (
-          <Link key={product.id} href={`/buyer/products/${product.id}`} className="group overflow-hidden rounded-2xl border border-emerald-950/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+          <Link key={product.id} href={`/buyer/products/${product.id}`} className="group overflow-hidden rounded-2xl border border-emerald-950/10 bg-white shadow-sm transition motion-reduce:transition-none hover:-translate-y-1 hover:shadow-lg motion-reduce:hover:translate-y-0">
             <div className="relative h-40 overflow-hidden bg-emerald-100">
-              <Image src={product.image} alt={product.imageAlt} fill className="object-cover transition duration-500 group-hover:scale-105" sizes="(max-width: 1024px) 50vw, 25vw" />
+              <Image src={product.image} alt={product.imageAlt} fill className="object-cover transition duration-500 motion-reduce:transition-none group-hover:scale-105 motion-reduce:group-hover:scale-100" sizes="(max-width: 1024px) 50vw, 25vw" />
               <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-emerald-800">Grade {product.grade}</span>
               <span className="absolute right-3 top-3 rounded-full bg-emerald-950/80 px-2.5 py-1 text-[11px] font-bold text-white">{product.category}</span>
             </div>
