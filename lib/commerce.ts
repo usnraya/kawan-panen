@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
-import { CATALOG_PRODUCTS, isCatalogDate, MIN_ORDER_KG, type CatalogProduct } from "@/lib/catalog-data";
+import { addDaysIso, CATALOG_PRODUCTS, DELIVERY_LEAD_DAYS, isCatalogDate, MIN_ORDER_KG, type CatalogProduct } from "@/lib/catalog-data";
 import { previewMatch, runMatching } from "@/app/buyer/requests/actions";
 import { assertPaymentItemsTotal, buildPaymentItems, calcOrderLineFinance, type CommerceSettings } from "@/lib/finance";
 import { getPaymentProvider } from "@/lib/payments";
@@ -214,11 +214,13 @@ function readCommerceSettings(value: unknown): CommerceSettings {
   };
 }
 
+/** Delivery date buyers request: harvest date + QC/logistics buffer, never the harvest day
+ *  itself (matching requires forecast.harvestDate <= deliveryDate - harvestLeadDays). */
 export function dateForProduct(product: CatalogProduct) {
   if (!isCatalogDate(product.harvestDate)) {
     throw new CommerceError(`Tanggal panen ${product.name} tidak valid.`);
   }
-  return product.harvestDate;
+  return addDaysIso(product.harvestDate, DELIVERY_LEAD_DAYS);
 }
 
 async function getCommerceSettings(admin: AdminClient) {

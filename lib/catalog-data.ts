@@ -15,6 +15,22 @@ export function formatHarvestDate(iso: string) {
   );
 }
 
+/**
+ * Days after harvest before a buyer can realistically receive the order (QC +
+ * logistics at the hub). Matching requires forecast.harvestDate to be at least
+ * `harvestLeadDays` (settings.matching, default 1) before the request's
+ * deliveryDate, so a delivery date equal to the harvest date never matches.
+ * Kept here (not in `settings`) because it's catalog-demo presentation, not a
+ * matching rule.
+ */
+export const DELIVERY_LEAD_DAYS = 1;
+
+export function addDaysIso(iso: string, days: number) {
+  if (!isCatalogDate(iso)) throw new Error(`Invalid catalog date: ${iso}`);
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
 /** Simulated wholesale minimum for the M7 cart/checkout flow. Shared by client and server code. */
 export const MIN_ORDER_KG = 20;
 export const ORDER_STEP_KG = 5;

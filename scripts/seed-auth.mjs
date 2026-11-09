@@ -124,14 +124,27 @@ async function seedReferenceData() {
   if (distanceError) throw distanceError;
 }
 
+// Every open commodity below has >=2 farmers so the 50%-per-supplier matching
+// cap (settings.matching.maxSharePerSupplier) never leaves a solo-supplier
+// commodity permanently half-stocked for a minimum-size (20kg) buyer order.
+const FORECAST_SETS = [
+  [["Tomat", 300, 180, "2026-11-12", "A", "open"], ["Sawi", 220, 70, "2026-11-14", "A", "open"], ["Kubis", 420, 420, "2026-11-18", "A", "closed"], ["Tomat", 180, 0, "2026-11-20", "B", "open"]],
+  [["Selada", 110, 60, "2026-11-11", "A", "open"], ["Timun", 200, 90, "2026-11-13", "B", "open"], ["Wortel", 260, 0, "2026-11-13", "A", "open"], ["Sawi", 160, 20, "2026-11-13", "A", "open"], ["Tomat", 160, 0, "2026-11-13", "A", "open"], ["Selada", 100, 0, "2026-11-12", "A", "open"]],
+  [["Kubis", 380, 120, "2026-11-16", "A", "open"], ["Terong", 150, 50, "2026-11-15", "A", "open"], ["Cabai Merah", 95, 0, "2026-11-12", "A", "open"], ["Bawang Putih", 110, 10, "2026-11-18", "B", "open"]],
+  [["Tomat", 240, 100, "2026-11-17", "A", "open"], ["Bawang Merah", 140, 40, "2026-11-17", "A", "open"], ["Bawang Putih", 120, 0, "2026-11-19", "B", "open"], ["Jeruk", 200, 20, "2026-11-14", "A", "open"]],
+  [["Wortel", 280, 140, "2026-11-13", "A", "open"], ["Selada", 100, 0, "2026-11-16", "A", "open"], ["Alpukat", 130, 30, "2026-11-20", "A", "open"], ["Kubis", 200, 0, "2026-11-17", "A", "open"]],
+  [["Terong", 180, 80, "2026-11-15", "A", "open"], ["Timun", 210, 0, "2026-11-18", "B", "open"], ["Mangga", 190, 90, "2026-11-22", "A", "open"], ["Bawang Merah", 130, 20, "2026-11-16", "A", "open"]],
+  [["Jahe Merah", 70, 20, "2026-11-21", "A", "open"], ["Cabai Merah", 100, 40, "2026-11-18", "A", "open"], ["Jeruk", 310, 120, "2026-11-15", "A", "open"], ["Pisang", 220, 30, "2026-11-13", "A", "open"]],
+  [["Pisang", 260, 100, "2026-11-14", "A", "open"], ["Mangga", 190, 0, "2026-11-22", "A", "open"], ["Alpukat", 140, 50, "2026-11-20", "A", "open"], ["Jahe Merah", 90, 10, "2026-11-20", "A", "open"]],
+];
+
 async function seedFarmerForecasts(farmerId, farmerIndex, hubIdByName) {
   const { data: existing, error: readError } = await supabase
     .from("harvest_forecasts")
-    .select("id")
-    .eq("farmer_id", farmerId)
-    .limit(1);
+    .select("commodity_id, expected_harvest_date")
+    .eq("farmer_id", farmerId);
   if (readError) throw readError;
-  if (existing.length > 0) return;
+  const existingKeys = new Set((existing ?? []).map((row) => `${row.commodity_id}:${row.expected_harvest_date}`));
 
   const hubId = farmerIndex % 2 === 0 ? hubIdByName.get("Hub Tabanan") : hubIdByName.get("Titik Kumpul Karangasem");
 
@@ -141,38 +154,31 @@ async function seedFarmerForecasts(farmerId, farmerIndex, hubIdByName) {
   if (commodityError) throw commodityError;
 
   const commodityId = new Map(commodities.map((commodity) => [commodity.name, commodity.id]));
-  const forecastSets = [
-    [["Tomat", 300, 180, "2026-11-12", "A", "open"], ["Sawi", 220, 70, "2026-11-14", "A", "open"], ["Kubis", 420, 420, "2026-11-18", "A", "closed"], ["Tomat", 180, 0, "2026-11-20", "B", "open"]],
-    [["Selada", 110, 60, "2026-11-11", "A", "open"], ["Timun", 200, 90, "2026-11-13", "B", "open"], ["Wortel", 260, 0, "2026-11-13", "A", "open"]],
-    [["Kubis", 380, 120, "2026-11-16", "A", "open"], ["Terong", 150, 50, "2026-11-15", "A", "open"], ["Cabai Merah", 95, 0, "2026-11-12", "A", "open"]],
-    [["Tomat", 240, 100, "2026-11-17", "A", "open"], ["Bawang Merah", 140, 40, "2026-11-17", "A", "open"], ["Bawang Putih", 120, 0, "2026-11-19", "B", "open"]],
-    [["Wortel", 280, 140, "2026-11-13", "A", "open"], ["Selada", 100, 0, "2026-11-16", "A", "open"], ["Alpukat", 130, 30, "2026-11-20", "A", "open"]],
-    [["Terong", 180, 80, "2026-11-15", "A", "open"], ["Timun", 210, 0, "2026-11-18", "B", "open"], ["Mangga", 190, 90, "2026-11-22", "A", "open"]],
-    [["Jahe Merah", 70, 20, "2026-11-21", "A", "open"], ["Cabai Merah", 100, 40, "2026-11-18", "A", "open"], ["Jeruk", 310, 120, "2026-11-15", "A", "open"]],
-    [["Pisang", 260, 100, "2026-11-14", "A", "open"], ["Mangga", 190, 0, "2026-11-22", "A", "open"], ["Alpukat", 140, 50, "2026-11-20", "A", "open"]],
-  ];
 
-  const rows = forecastSets[farmerIndex].map(([commodity, est_kg, reserved_kg, expected_harvest_date, grade, status]) => {
-    const pricing = PRICE_BY_COMMODITY[commodity];
-    if (!pricing) throw new Error(`Missing price seed for ${commodity}.`);
-    return {
-      farmer_id: farmerId,
-      commodity_id: commodityId.get(commodity),
-      est_kg,
-      reserved_kg,
-      expected_harvest_date,
-      grade,
-      status,
-      production_cost_per_kg: pricing[0],
-      price_per_kg: pricing[1],
-      hub_id: hubId,
-      verification_status: "verified",
-    };
-  });
+  const rows = FORECAST_SETS[farmerIndex]
+    .map(([commodity, est_kg, reserved_kg, expected_harvest_date, grade, status]) => {
+      const pricing = PRICE_BY_COMMODITY[commodity];
+      if (!pricing) throw new Error(`Missing price seed for ${commodity}.`);
+      return {
+        farmer_id: farmerId,
+        commodity_id: commodityId.get(commodity),
+        est_kg,
+        reserved_kg,
+        expected_harvest_date,
+        grade,
+        status,
+        production_cost_per_kg: pricing[0],
+        price_per_kg: pricing[1],
+        hub_id: hubId,
+        verification_status: "verified",
+      };
+    })
+    .filter((row) => !existingKeys.has(`${row.commodity_id}:${row.expected_harvest_date}`));
 
   if (rows.some((row) => !row.commodity_id)) {
     throw new Error("Reference commodities were not seeded.");
   }
+  if (rows.length === 0) return;
 
   const { error } = await supabase.from("harvest_forecasts").insert(rows);
   if (error) throw error;
