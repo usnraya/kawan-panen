@@ -167,53 +167,69 @@ alter table baselines enable row level security;
 
 -- Profiles: users see their own profile; coordinators see all; buyers/farmers only receive
 -- the limited profile fields needed by future server-side role-scoped queries.
+drop policy if exists "profiles own or coordinator read" on profiles;
 create policy "profiles own or coordinator read" on profiles for select
   using (id = auth.uid() or current_user_role() = 'coordinator');
+drop policy if exists "users update own profile" on profiles;
 create policy "users update own profile" on profiles for update
   using (id = auth.uid()) with check (id = auth.uid());
 
+drop policy if exists "authenticated read commodities" on commodities;
 create policy "authenticated read commodities" on commodities for select
   using (auth.uid() is not null);
+drop policy if exists "coordinator manage commodities" on commodities;
 create policy "coordinator manage commodities" on commodities for all
   using (current_user_role() = 'coordinator')
   with check (current_user_role() = 'coordinator');
 
+drop policy if exists "farmers manage own forecasts" on harvest_forecasts;
 create policy "farmers manage own forecasts" on harvest_forecasts for all
   using (farmer_id = auth.uid() or current_user_role() = 'coordinator')
   with check (farmer_id = auth.uid() or current_user_role() = 'coordinator');
 
+drop policy if exists "buyers read own requests" on buyer_requests;
 create policy "buyers read own requests" on buyer_requests for select
   using (buyer_id = auth.uid() or current_user_role() = 'coordinator');
+drop policy if exists "buyers create own requests" on buyer_requests;
 create policy "buyers create own requests" on buyer_requests for insert
   with check (buyer_id = auth.uid() and current_user_role() = 'buyer');
+drop policy if exists "buyers update own requests" on buyer_requests;
 create policy "buyers update own requests" on buyer_requests for update
   using (buyer_id = auth.uid() or current_user_role() = 'coordinator')
   with check (buyer_id = auth.uid() or current_user_role() = 'coordinator');
 
+drop policy if exists "allocation scoped read" on allocations;
 create policy "allocation scoped read" on allocations for select
   using (
     farmer_id = auth.uid()
     or current_user_role() = 'coordinator'
     or exists (select 1 from buyer_requests r where r.id = request_id and r.buyer_id = auth.uid())
   );
+drop policy if exists "farmers respond own allocations" on allocations;
 create policy "farmers respond own allocations" on allocations for update
   using (farmer_id = auth.uid() or current_user_role() = 'coordinator')
   with check (farmer_id = auth.uid() or current_user_role() = 'coordinator');
+drop policy if exists "coordinator creates allocations" on allocations;
 create policy "coordinator creates allocations" on allocations for insert
   with check (current_user_role() = 'coordinator');
 
+drop policy if exists "authenticated read supplier scores" on supplier_scores;
 create policy "authenticated read supplier scores" on supplier_scores for select
   using (auth.uid() is not null);
+drop policy if exists "coordinator manage supplier scores" on supplier_scores;
 create policy "coordinator manage supplier scores" on supplier_scores for all
   using (current_user_role() = 'coordinator')
   with check (current_user_role() = 'coordinator');
 
+drop policy if exists "authenticated read zone distance" on zone_distance;
 create policy "authenticated read zone distance" on zone_distance for select
   using (auth.uid() is not null);
+drop policy if exists "coordinator manage zone distance" on zone_distance;
 create policy "coordinator manage zone distance" on zone_distance for all
   using (current_user_role() = 'coordinator')
   with check (current_user_role() = 'coordinator');
 
+drop policy if exists "events scoped read" on events;
 create policy "events scoped read" on events for select
   using (
     current_user_role() = 'coordinator'
@@ -224,19 +240,24 @@ create policy "events scoped read" on events for select
           or exists (select 1 from allocations a where a.request_id = r.id and a.farmer_id = auth.uid()))
     )
   );
+drop policy if exists "system inserts events" on events;
 create policy "system inserts events" on events for insert
   with check (auth.uid() is not null);
 -- "Coordinator may not delete the event log" (spec section 3): no delete policy is defined,
 -- which denies all deletes under RLS regardless of role.
 
+drop policy if exists "authenticated read settings" on settings;
 create policy "authenticated read settings" on settings for select
   using (auth.uid() is not null);
+drop policy if exists "coordinator manage settings" on settings;
 create policy "coordinator manage settings" on settings for all
   using (current_user_role() = 'coordinator')
   with check (current_user_role() = 'coordinator');
 
+drop policy if exists "authenticated read baselines" on baselines;
 create policy "authenticated read baselines" on baselines for select
   using (auth.uid() is not null);
+drop policy if exists "coordinator manage baselines" on baselines;
 create policy "coordinator manage baselines" on baselines for all
   using (current_user_role() = 'coordinator')
   with check (current_user_role() = 'coordinator');
@@ -363,20 +384,26 @@ alter table payment_transactions enable row level security;
 alter table payment_webhook_events enable row level security;
 alter table stock_reservations enable row level security;
 
+drop policy if exists "buyers own carts" on carts;
 create policy "buyers own carts" on carts for select
   using (buyer_id = auth.uid() or current_user_role() = 'coordinator');
+drop policy if exists "buyers own cart items" on cart_items;
 create policy "buyers own cart items" on cart_items for select
   using (exists (select 1 from carts c where c.id = cart_id and
     (c.buyer_id = auth.uid() or current_user_role() = 'coordinator')));
+drop policy if exists "buyers own orders" on orders;
 create policy "buyers own orders" on orders for select
   using (buyer_id = auth.uid() or current_user_role() = 'coordinator');
+drop policy if exists "buyers own order items" on order_items;
 create policy "buyers own order items" on order_items for select
   using (exists (select 1 from orders o where o.id = order_id and
     (o.buyer_id = auth.uid() or current_user_role() = 'coordinator'))
     or farmer_id = auth.uid());
+drop policy if exists "buyers own payment transactions" on payment_transactions;
 create policy "buyers own payment transactions" on payment_transactions for select
   using (exists (select 1 from orders o where o.id = order_id and
     (o.buyer_id = auth.uid() or current_user_role() = 'coordinator')));
+drop policy if exists "buyers own stock reservations" on stock_reservations;
 create policy "buyers own stock reservations" on stock_reservations for select
   using (exists (select 1 from orders o where o.id = order_id and
     (o.buyer_id = auth.uid() or current_user_role() = 'coordinator')));
