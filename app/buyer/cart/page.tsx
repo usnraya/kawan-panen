@@ -24,7 +24,7 @@ export default async function CartPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-extrabold tracking-tight text-emerald-950">Keranjang</h1>
         <p className="mt-2 text-sm text-zinc-500">Periksa jumlah dan harga sebelum lanjut ke pembayaran.</p>
-        <div className="mt-8"><CartClient lines={cart.lines} total={cart.total} checkoutSlot={(canCheckout) => <CheckoutButton disabled={!canCheckout} />} /></div>
+        <div className="mt-8"><CartClient lines={cart.lines} total={cart.total} checkoutSlot={<CheckoutButton disabled={!cart.lines.every((line) => line.shortfallKg === 0)} />} /></div>
       </main>
       <SiteFooter />
     </div>
