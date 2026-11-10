@@ -76,7 +76,7 @@ export async function recordQc(
 
   const shortfallKg = Number(allocation.committed_kg) - actualKg;
   if (shortfallKg > 0) {
-    await triggerFallback(allocation.request_id, allocation.forecast_id, shortfallKg);
+    await triggerFallback(allocation.request_id, allocation.forecast_id, shortfallKg, allocation.id);
   }
 
   revalidatePath("/coordinator/hub");

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePaymentProvider } from "@/lib/payment-config";
 import { CommerceError, createCheckout } from "@/lib/commerce";
 import { settlePaidOrder, SettlementError } from "@/lib/settlement";
 
@@ -30,6 +31,14 @@ export async function checkout(): Promise<CheckoutActionState> {
  * verified webhook (app/api/payments/midtrans/webhook/route.ts) — never here.
  */
 export async function confirmMockPayment(orderId: string): Promise<CheckoutActionState> {
+  try {
+    if (resolvePaymentProvider() !== "mock") {
+      return { error: "Simulasi pembayaran tidak aktif pada environment ini." };
+    }
+  } catch {
+    return { error: "Payment provider belum dikonfigurasi." };
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "LOGIN_REQUIRED" };

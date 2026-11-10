@@ -65,7 +65,7 @@ Akun petani simulasi lain tersedia di `scripts/seed-auth.mjs`.
 1. Login sebagai buyer dengan `pembeli.simulasi@example.test`.
 2. Buka **Ketersediaan**, pilih Tomat, masukkan minimal 20 kg, lalu tambahkan ke keranjang.
 3. Buka keranjang. Pastikan stok tervalidasi, total, supplier, grade, dan tanggal pengiriman terlihat sebelum checkout.
-4. Checkout. Dengan `MIDTRANS_SERVER_KEY`, lanjutkan Snap sandbox. Tanpa key Midtrans, aplikasi memakai mock provider demo lokal; status pembayaran tetap dikendalikan server.
+4. Checkout. Atur `PAYMENT_PROVIDER=midtrans` dan `MIDTRANS_SERVER_KEY` untuk Snap sandbox. Untuk simulasi lokal tanpa provider, atur `PAYMENT_PROVIDER=mock` secara eksplisit; jangan gunakan mock pada deployment produksi.
 5. Login sebagai koordinator dengan `koordinator.simulasi@example.test`.
 6. Buka **Ruang demo** di `/coordinator/demo`.
 7. Jalankan simulasi kegagalan pemasok utama.

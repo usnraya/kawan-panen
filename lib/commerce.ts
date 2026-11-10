@@ -3,13 +3,11 @@ import "server-only";
 import { createClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
 import { addDaysIso, CATALOG_PRODUCTS, DELIVERY_LEAD_DAYS, isCatalogDate, MIN_ORDER_KG, type CatalogProduct } from "@/lib/catalog-data";
-import { previewMatch, runMatching } from "@/app/buyer/requests/actions";
-import { assertPaymentItemsTotal, buildPaymentItems, calcOrderLineFinance, type CommerceSettings } from "@/lib/finance";
+import { randomUUID } from "node:crypto";
+import { previewMatch } from "@/app/buyer/requests/actions";
+import { assertPaymentItemsTotal, buildPaymentItems } from "@/lib/finance";
 import { getPaymentProvider } from "@/lib/payments";
-import type { Database } from "@/lib/database.types";
-
-type OrderItemInsert = Database["public"]["Tables"]["order_items"]["Insert"];
-type StockReservationInsert = Database["public"]["Tables"]["stock_reservations"]["Insert"];
+import { resolvePaymentProvider } from "@/lib/payment-config";
 
 // Server-only cart module. Catalog metadata renders the storefront; checkout
 // trusts only verified harvest forecasts, matching, and server-side finance.
@@ -183,36 +181,20 @@ export async function getCartCount(): Promise<number> {
 }
 
 const RESERVATION_MINUTES = 30;
-const DEFAULT_COMMERCE_SETTINGS: CommerceSettings = {
-  farmerCommissionBps: 300,
-  buyerCommissionBps: 300,
-  logisticsPerKg: 1500,
-  priceFloorMultiplier: 1.2,
-};
 
 type CheckoutResult = { orderId: string; snapToken: string | null; provider: "mock" | "midtrans" };
-type MatchedLine = {
-  product: CatalogProduct;
-  qtyKg: number;
+type CheckoutLine = {
+  productId: string;
+  productName: string;
   commodityId: string;
-  requestId: string;
+  qtyKg: number;
   deliveryDate: string;
+  minGrade: CatalogProduct["grade"];
+  allocations: Array<{ forecast_id: string; farmer_id: string; role: "primary" | "backup"; committed_kg: number }>;
 };
-type ForecastRow = { id: string; price_per_kg: number | null; grade: CatalogProduct["grade"]; hub_id: string | null };
-type AllocationRow = { id: string; request_id: string; forecast_id: string; farmer_id: string; committed_kg: number };
-type ProfileRow = { id: string; display_name: string; org_name: string | null };
 
-function readCommerceSettings(value: unknown): CommerceSettings {
-  if (!value || typeof value !== "object") return DEFAULT_COMMERCE_SETTINGS;
-  const row = value as Record<string, unknown>;
-  const number = (key: keyof CommerceSettings) => typeof row[key] === "number" && Number.isFinite(row[key]) ? Number(row[key]) : DEFAULT_COMMERCE_SETTINGS[key];
-  return {
-    farmerCommissionBps: number("farmerCommissionBps"),
-    buyerCommissionBps: number("buyerCommissionBps"),
-    logisticsPerKg: number("logisticsPerKg"),
-    priceFloorMultiplier: number("priceFloorMultiplier"),
-  };
-}
+type RpcCheckout = { order_id: string; total_amount: number; existing: boolean };
+type RpcPayment = { payment_id: string; state: "READY" | "CLAIMED" | "IN_PROGRESS"; reference?: string; snap_token?: string | null; provider: "mock" | "midtrans" };
 
 /** Delivery date buyers request: harvest date + QC/logistics buffer, never the harvest day
  *  itself (matching requires forecast.harvestDate <= deliveryDate - harvestLeadDays). */
@@ -223,157 +205,61 @@ export function dateForProduct(product: CatalogProduct) {
   return addDaysIso(product.harvestDate, DELIVERY_LEAD_DAYS);
 }
 
-async function getCommerceSettings(admin: AdminClient) {
-  const { data } = await admin.from("settings").select("value").eq("key", "commerce").maybeSingle();
-  return readCommerceSettings(data?.value);
-}
-
-async function createMatchedLines(admin: AdminClient, buyerId: string, items: Array<{ product_id: string; qty_kg: number; commodity_id: string | null }>): Promise<MatchedLine[]> {
-  const lines: MatchedLine[] = [];
+async function buildCheckoutLines(admin: AdminClient, buyerId: string, items: Array<{ product_id: string; qty_kg: number; commodity_id: string | null }>): Promise<CheckoutLine[]> {
+  const lines: CheckoutLine[] = [];
   for (const item of items) {
     const product = findProduct(item.product_id);
     const commodityId = item.commodity_id ?? await findCommodityId(admin, product);
     const qtyKg = Number(item.qty_kg);
     if (!Number.isInteger(qtyKg) || qtyKg < MIN_ORDER_KG) throw new CommerceError(`Jumlah ${product.name} tidak valid.`);
-
     const deliveryDate = dateForProduct(product);
-    const { data: request, error: requestError } = await admin
-      .from("buyer_requests")
-      .insert({ buyer_id: buyerId, commodity_id: commodityId, qty_kg: qtyKg, delivery_date: deliveryDate, min_grade: product.grade, recurrence: "none", status: "OPEN" })
-      .select("id")
-      .single();
-    if (requestError || !request) throw new CommerceError("Permintaan pembelian gagal dibuat.");
-
-    const result = await runMatching(request.id);
+    const result = await previewMatch({ buyerId, commodityId, qtyKg, deliveryDate, minGrade: product.grade });
     if (result.shortfallKg > 0) throw new CommerceError(`${product.name} belum memiliki stok tervalidasi ${result.shortfallKg} kg.`);
-    lines.push({ product, qtyKg, commodityId, requestId: request.id, deliveryDate });
+    lines.push({
+      productId: product.id,
+      productName: product.name,
+      commodityId,
+      qtyKg,
+      deliveryDate,
+      minGrade: product.grade,
+      allocations: result.allocations.map((allocation) => ({
+        forecast_id: allocation.forecastId,
+        farmer_id: allocation.farmerId,
+        role: allocation.role,
+        committed_kg: allocation.kg,
+      })),
+    });
   }
   return lines;
 }
 
-async function getExistingPayment(admin: AdminClient, orderId: string) {
-  const { data } = await admin.from("payment_transactions").select("snap_token, provider").eq("order_id", orderId).maybeSingle();
-  return data as { snap_token: string | null; provider: "mock" | "midtrans" } | null;
-}
-
-/**
- * Checkout is idempotent on the active cart. Prices and stock are re-read from
- * verified forecasts after matching; browser/catalog totals are never trusted.
- */
+/** Atomic DB preparation, leased provider creation, then guarded finalization. */
 export async function createCheckout(): Promise<CheckoutResult> {
   const { userId, admin } = await requireBuyer();
   const cartId = await getActiveCartId(admin, userId, false);
   if (!cartId) throw new CommerceError("Keranjang kosong.");
+  const { data: items, error: itemsError } = await admin.from("cart_items").select("product_id, commodity_id, qty_kg").eq("cart_id", cartId);
+  if (itemsError) throw new CommerceError(databaseErrorMessage(itemsError));
+  if (!items?.length) throw new CommerceError("Keranjang kosong.");
 
-  const { data: items } = await admin.from("cart_items").select("product_id, commodity_id, qty_kg").eq("cart_id", cartId);
-  if (!items || items.length === 0) throw new CommerceError("Keranjang kosong.");
+  const lines = await buildCheckoutLines(admin, userId, items);
+  const providerKind = resolvePaymentProvider();
+  const checkoutKey = cartId;
+  const expiresAt = new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000).toISOString();
+  const { data: prepared, error: prepareError } = await admin.rpc("prepare_checkout", {
+    p_buyer_id: userId,
+    p_cart_id: cartId,
+    p_checkout_key: checkoutKey,
+    p_lines: lines,
+    p_expires_at: expiresAt,
+    p_provider: providerKind,
+  });
+  if (prepareError || !prepared) throw new CommerceError(prepareError?.message ?? "Checkout gagal disiapkan.");
+  const checkout = prepared as unknown as RpcCheckout;
+  const orderId = checkout.order_id;
+  const totalAmount = Number(checkout.total_amount);
 
-  for (const item of items) {
-    const product = findProduct(item.product_id);
-    const commodityId = item.commodity_id ?? await findCommodityId(admin, product);
-    const result = await previewMatch({ buyerId: userId, commodityId, qtyKg: Number(item.qty_kg), deliveryDate: dateForProduct(product), minGrade: product.grade });
-    if (result.shortfallKg > 0) {
-      throw new CommerceError(`${product.name} belum memiliki stok terverifikasi untuk ${result.shortfallKg} kg. Kurangi jumlah sebelum pembayaran.`);
-    }
-  }
-
-  const { data: existingOrder, error: existingOrderError } = await admin
-    .from("orders")
-    .select("id, total_amount")
-    .eq("idempotency_key", cartId)
-    .maybeSingle();
-  if (existingOrderError) throw new CommerceError(databaseErrorMessage(existingOrderError));
-
-  let orderId = existingOrder?.id ?? "";
-  let totalAmount = Number(existingOrder?.total_amount ?? 0);
-  const hasOrderItems = existingOrder ? Boolean((await admin.from("order_items").select("id").eq("order_id", existingOrder.id).limit(1)).data?.length) : false;
-
-  if (!existingOrder) {
-    const { data: insertedOrder, error } = await admin
-      .from("orders")
-      .insert({ buyer_id: userId, cart_id: cartId, idempotency_key: cartId, total_amount: 0, status: "DRAFT" })
-      .select("id")
-      .single();
-    if (error?.code === "23505") {
-      const { data: raced } = await admin.from("orders").select("id, total_amount").eq("idempotency_key", cartId).single();
-      if (!raced) throw new CommerceError("Gagal membuat pesanan.");
-      orderId = raced.id;
-      totalAmount = Number(raced.total_amount);
-    } else if (error || !insertedOrder) {
-      throw new CommerceError(error?.message ?? "Gagal membuat pesanan.");
-    } else {
-      orderId = insertedOrder.id;
-    }
-  }
-
-  if (!hasOrderItems) {
-    const matchedLines = await createMatchedLines(admin, userId, items);
-    const settings = await getCommerceSettings(admin);
-    const requestIds = matchedLines.map((line) => line.requestId);
-    const { data: allocationRows, error: allocationError } = await admin
-      .from("allocations")
-      .select("id, request_id, forecast_id, farmer_id, committed_kg")
-      .in("request_id", requestIds)
-      .eq("role", "primary");
-    if (allocationError || !allocationRows?.length) throw new CommerceError("Alokasi pemasok belum tersedia.");
-
-    const allocations = allocationRows as unknown as AllocationRow[];
-    const forecastIds = [...new Set(allocations.map((row) => row.forecast_id))];
-    const farmerIds = [...new Set(allocations.map((row) => row.farmer_id))];
-    const [{ data: forecastRows }, { data: profileRows }] = await Promise.all([
-      admin.from("harvest_forecasts").select("id, price_per_kg, grade, hub_id").in("id", forecastIds),
-      admin.from("profiles").select("id, display_name, org_name").in("id", farmerIds),
-    ]);
-    const forecasts = new Map((forecastRows as unknown as ForecastRow[] ?? []).map((row) => [row.id, row]));
-    const profiles = new Map((profileRows as unknown as ProfileRow[] ?? []).map((row) => [row.id, row]));
-    const orderItems: OrderItemInsert[] = [];
-    const reservations: StockReservationInsert[] = [];
-    const requestByCommodity = new Map(matchedLines.map((line) => [line.commodityId, line]));
-
-    for (const allocation of allocations) {
-      const forecast = forecasts.get(allocation.forecast_id);
-      if (!forecast || !forecast.price_per_kg || forecast.price_per_kg <= 0) throw new CommerceError("Harga pemasok belum diverifikasi.");
-      const line = requestByCommodity.get((await admin.from("buyer_requests").select("commodity_id").eq("id", allocation.request_id).single()).data?.commodity_id ?? "");
-      if (!line) throw new CommerceError("Baris pesanan tidak ditemukan.");
-      const finance = calcOrderLineFinance(Number(allocation.committed_kg), Number(forecast.price_per_kg), settings);
-      const profile = profiles.get(allocation.farmer_id);
-      orderItems.push({
-        order_id: orderId,
-        product_id: line.product.id,
-        product_name: line.product.name,
-        supplier_label: profile?.org_name ?? profile?.display_name ?? "Pemasok terverifikasi",
-        grade: forecast.grade,
-        unit_price: Number(forecast.price_per_kg),
-        qty_kg: Number(allocation.committed_kg),
-        subtotal: finance.subtotal,
-        allocation_id: allocation.id,
-        farmer_id: allocation.farmer_id,
-        buyer_commission: finance.buyerCommission,
-        farmer_commission: finance.farmerCommission,
-        logistics_fee: finance.logisticsFee,
-      });
-      reservations.push({ order_id: orderId, product_id: line.product.id, qty_kg: Number(allocation.committed_kg), expires_at: new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000).toISOString() });
-      totalAmount += finance.buyerTotal;
-    }
-
-    const firstLine = matchedLines[0];
-    const firstForecast = forecasts.get(allocations[0].forecast_id);
-    const { error: itemError } = await admin.from("order_items").insert(orderItems);
-    if (itemError) throw new CommerceError("Rincian pesanan gagal disimpan.");
-    const { error: reservationError } = await admin.from("stock_reservations").insert(reservations);
-    if (reservationError) throw new CommerceError("Reservasi stok gagal disimpan.");
-    const { error: orderError } = await admin.from("orders").update({ total_amount: totalAmount, request_id: firstLine.requestId, hub_id: firstForecast?.hub_id ?? null }).eq("id", orderId);
-    if (orderError) throw new CommerceError("Total pesanan gagal disimpan.");
-    await admin.from("carts").update({ status: "checked_out" }).eq("id", cartId);
-  }
-
-  const existingPayment = await getExistingPayment(admin, orderId);
-  if (existingPayment) return { orderId, snapToken: existingPayment.snap_token, provider: existingPayment.provider };
-
-  const { data: savedOrder } = await admin.from("orders").select("total_amount").eq("id", orderId).single();
-  totalAmount = Number(savedOrder?.total_amount ?? totalAmount);
-  const { data: itemRows, error: itemRowsError } = await admin
-    .from("order_items")
+  const { data: itemRows, error: itemRowsError } = await admin.from("order_items")
     .select("product_id, product_name, unit_price, qty_kg, buyer_commission, logistics_fee")
     .eq("order_id", orderId);
   if (itemRowsError || !itemRows?.length) throw new CommerceError("Rincian pesanan tidak tersedia.");
@@ -385,25 +271,32 @@ export async function createCheckout(): Promise<CheckoutResult> {
     buyerCommission: Number(item.buyer_commission),
     logisticsFee: Number(item.logistics_fee),
   })));
-  try {
-    assertPaymentItemsTotal(paymentItems, totalAmount);
-  } catch (error) {
-    throw new CommerceError(error instanceof Error ? error.message : "Rincian pembayaran tidak valid.");
+  try { assertPaymentItemsTotal(paymentItems, totalAmount); }
+  catch (error) { throw new CommerceError(error instanceof Error ? error.message : "Rincian pembayaran tidak valid."); }
+
+  const claimToken = randomUUID();
+  const { data: claim, error: claimError } = await admin.rpc("claim_payment_creation", {
+    p_order_id: orderId,
+    p_claim_token: claimToken,
+  });
+  if (claimError || !claim) throw new CommerceError(claimError?.message ?? "Payment intent gagal diklaim.");
+  const paymentClaim = claim as unknown as RpcPayment;
+  if (paymentClaim.state === "READY") {
+    return { orderId, snapToken: paymentClaim.snap_token ?? null, provider: paymentClaim.provider };
   }
-  const payment = await getPaymentProvider().createPayment({
-    orderId,
-    grossAmount: totalAmount,
-    items: paymentItems,
+  if (paymentClaim.state === "IN_PROGRESS") {
+    return { orderId, snapToken: null, provider: paymentClaim.provider };
+  }
+
+  const payment = await getPaymentProvider().createPayment({ orderId, grossAmount: totalAmount, items: paymentItems });
+  const { data: finalized, error: finalizeError } = await admin.rpc("finalize_payment_creation", {
+    p_payment_id: paymentClaim.payment_id,
+    p_claim_token: claimToken,
+    p_provider: payment.provider,
+    p_reference: payment.reference,
+    p_snap_token: payment.token,
+    p_raw_response: { reference: payment.reference, provider: payment.provider },
   });
-  const { error: paymentError } = await admin.from("payment_transactions").insert({
-    order_id: orderId,
-    midtrans_order_id: payment.reference,
-    snap_token: payment.token,
-    status: "UNPAID",
-    provider: payment.provider,
-    idempotency_key: cartId,
-    raw_response: { reference: payment.reference, provider: payment.provider },
-  });
-  if (paymentError && paymentError.code !== "23505") throw new CommerceError("Transaksi pembayaran gagal disimpan.");
-  return { orderId, snapToken: payment.token, provider: payment.provider };
+  if (finalizeError || !finalized) throw new CommerceError(finalizeError?.message ?? "Transaksi pembayaran gagal disimpan.");
+  return { orderId, snapToken: finalized.snap_token ?? null, provider: finalized.provider };
 }

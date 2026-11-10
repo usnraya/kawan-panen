@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSnapTransaction } from "./midtrans";
+import { resolvePaymentProvider } from "./payment-config";
 
 export type PaymentOrder = {
   orderId: string;
@@ -32,5 +33,5 @@ class MidtransSandboxProvider implements PaymentProvider {
 }
 
 export function getPaymentProvider(): PaymentProvider {
-  return process.env.MIDTRANS_SERVER_KEY ? new MidtransSandboxProvider() : new MockProvider();
+  return resolvePaymentProvider() === "mock" ? new MockProvider() : new MidtransSandboxProvider();
 }

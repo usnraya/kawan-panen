@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AllocationStatus, Grade, RequestRecurrence } from "@/lib/database.types";
+import type { Grade, RequestRecurrence } from "@/lib/database.types";
 import { match, type Forecast, type MatchingSettings } from "@/lib/matching";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
@@ -159,7 +159,7 @@ export async function runMatching(requestId: string) {
   if (requestError || !request) throw new Error("Permintaan tidak ditemukan.");
 
   const { data: buyer } = await admin.from("profiles").select("regency").eq("id", request.buyer_id).single();
-  const { result, forecasts } = await runMatchCore(admin, {
+  const { result } = await runMatchCore(admin, {
     id: request.id,
     commodityId: request.commodity_id,
     qtyKg: Number(request.qty_kg),
@@ -171,28 +171,20 @@ export async function runMatching(requestId: string) {
   const deadline = new Date(`${request.delivery_date}T00:00:00Z`);
   deadline.setUTCDate(deadline.getUTCDate() - 3);
   const allocations = result.allocations.map((allocation) => ({
-    request_id: request.id,
     forecast_id: allocation.forecastId,
     farmer_id: allocation.farmerId,
     role: allocation.role,
     committed_kg: allocation.kg,
-    status: (allocation.role === "primary" ? "PROPOSED" : "STANDBY") as AllocationStatus,
     confirm_deadline: deadline.toISOString(),
   }));
 
-  if (allocations.length > 0) {
-    const { error } = await admin.from("allocations").insert(allocations);
-    if (error) throw new Error(error.message);
-  }
-
-  for (const allocation of result.allocations.filter((item) => item.role === "primary")) {
-    const row = forecasts.find((item) => item.id === allocation.forecastId);
-    if (!row) continue;
-    await admin.from("harvest_forecasts").update({ reserved_kg: row.reservedKg + allocation.kg }).eq("id", row.id);
-  }
-
-  await admin.from("buyer_requests").update({ status: result.status, shortfall_kg: result.shortfallKg }).eq("id", request.id);
-  await admin.from("events").insert({ request_id: request.id, type: result.status === "MATCHED" ? "matched" : "partial", payload: { allocations: result.allocations.length, shortfallKg: result.shortfallKg, notes: result.notes } });
+  const { error: commitError } = await admin.rpc("commit_match_allocations", {
+    p_request_id: request.id,
+    p_allocations: allocations,
+    p_status: result.status,
+    p_shortfall_kg: result.shortfallKg,
+  });
+  if (commitError) throw new Error(commitError.message);
   revalidatePath(`/buyer/requests/${request.id}`);
   revalidatePath("/buyer/requests");
   return result;

@@ -118,11 +118,11 @@ type ForecastUpdate = Partial<Omit<HarvestForecast, "id" | "farmer_id" | "create
 
 type SupplierScore = { farmer_id: string; score: number; n_deliveries: number };
 type ZoneDistance = { from_regency: string; to_regency: string; km: number };
-type EventRow = { id: number; request_id: string | null; type: string; payload: Record<string, unknown> | null; created_at: string };
+type EventRow = { id: number; request_id: string | null; type: string; event_key: string | null; payload: Record<string, unknown> | null; created_at: string };
 type SettingsRow = { key: string; value: Record<string, unknown> };
 
 type SupplierScoreUpdate = Partial<Omit<SupplierScore, "farmer_id">>;
-type EventInsert = Omit<EventRow, "id" | "created_at"> & { id?: number; created_at?: string };
+type EventInsert = Omit<EventRow, "id" | "created_at" | "event_key"> & { id?: number; event_key?: string | null; created_at?: string };
 
 // M7 commerce extension (supabase/migrations/20261108_m7_commerce.sql).
 export type CartStatus = "active" | "checked_out" | "abandoned";
@@ -133,9 +133,10 @@ type Cart = { id: string; buyer_id: string; status: CartStatus; created_at: stri
 type CartItem = { id: string; cart_id: string; product_id: string; commodity_id: string | null; qty_kg: number; created_at: string };
 type Order = { id: string; buyer_id: string; cart_id: string | null; request_id: string | null; hub_id: string | null; idempotency_key: string; status: OrderStatus; total_amount: number; currency: string; created_at: string };
 type OrderItem = { id: string; order_id: string; product_id: string; product_name: string; supplier_label: string; grade: Grade; unit_price: number; qty_kg: number; subtotal: number; allocation_id: string | null; farmer_id: string | null; buyer_commission: number; farmer_commission: number; logistics_fee: number };
-type PaymentTransaction = { id: string; order_id: string; midtrans_order_id: string; snap_token: string | null; status: PaymentStatus; provider: "mock" | "midtrans"; idempotency_key: string | null; raw_response: Record<string, unknown> | null; created_at: string };
-type PaymentWebhookEvent = { id: number; midtrans_order_id: string; payload: Record<string, unknown>; signature_valid: boolean; received_at: string };
-type StockReservation = { id: string; order_id: string; product_id: string; qty_kg: number; expires_at: string; released_at: string | null };
+type PaymentCreationState = "PENDING_CREATE" | "CLAIMED" | "READY" | "UNKNOWN";
+type PaymentTransaction = { id: string; order_id: string; midtrans_order_id: string; snap_token: string | null; status: PaymentStatus; provider: "mock" | "midtrans"; idempotency_key: string | null; checkout_key: string | null; creation_state: PaymentCreationState; claim_token: string | null; claim_expires_at: string | null; raw_response: Record<string, unknown> | null; created_at: string };
+type PaymentWebhookEvent = { id: number; midtrans_order_id: string; payload: Record<string, unknown>; signature_valid: boolean; event_key: string; processed_at: string | null; processing_error: string | null; received_at: string };
+type StockReservation = { id: string; order_id: string; product_id: string; forecast_id: string | null; allocation_id: string | null; qty_kg: number; expires_at: string; released_at: string | null; release_reason: string | null };
 type Hub = { id: string; name: string; regency: string; is_active: boolean };
 type Delivery = { order_id: string; hub_id: string | null; courier_label: string; status: "assigned" | "picked_up" | "in_transit" | "delivered" | "failed"; picked_up_at: string | null; delivered_at: string | null; proof_photo_url: string | null };
 type Subscription = { id: string; buyer_id: string; status: "active" | "cancelled" | "expired"; current_period_end: string; payment_transaction_id: string | null; created_at: string };
@@ -158,10 +159,10 @@ type OrderItemInsert = Omit<OrderItem, "id" | "allocation_id" | "farmer_id" | "b
   farmer_commission?: number;
   logistics_fee?: number;
 };
-type PaymentTransactionInsert = Omit<PaymentTransaction, "id" | "status" | "provider" | "idempotency_key" | "raw_response" | "created_at"> & { id?: string; status?: PaymentStatus; provider?: "mock" | "midtrans"; idempotency_key?: string | null; raw_response?: Record<string, unknown> | null; created_at?: string };
+type PaymentTransactionInsert = Omit<PaymentTransaction, "id" | "status" | "provider" | "idempotency_key" | "checkout_key" | "creation_state" | "claim_token" | "claim_expires_at" | "raw_response" | "created_at"> & { id?: string; status?: PaymentStatus; provider?: "mock" | "midtrans"; idempotency_key?: string | null; checkout_key?: string | null; creation_state?: PaymentCreationState; claim_token?: string | null; claim_expires_at?: string | null; raw_response?: Record<string, unknown> | null; created_at?: string };
 type PaymentTransactionUpdate = Partial<Omit<PaymentTransaction, "id" | "order_id" | "created_at">>;
-type PaymentWebhookEventInsert = Omit<PaymentWebhookEvent, "id" | "received_at"> & { id?: number; received_at?: string };
-type StockReservationInsert = Omit<StockReservation, "id" | "released_at"> & { id?: string; released_at?: string | null };
+type PaymentWebhookEventInsert = Omit<PaymentWebhookEvent, "id" | "received_at" | "processed_at" | "processing_error"> & { id?: number; processed_at?: string | null; processing_error?: string | null; received_at?: string };
+type StockReservationInsert = Omit<StockReservation, "id" | "released_at" | "release_reason"> & { id?: string; released_at?: string | null; release_reason?: string | null };
 type StockReservationUpdate = Partial<Omit<StockReservation, "id" | "order_id" | "created_at">>;
 type HubInsert = Omit<Hub, "id" | "is_active"> & { id?: string; is_active?: boolean };
 type DeliveryInsert = Omit<Delivery, "status" | "picked_up_at" | "delivered_at" | "proof_photo_url"> & { status?: Delivery["status"]; picked_up_at?: string | null; delivered_at?: string | null; proof_photo_url?: string | null };
@@ -219,6 +220,46 @@ export interface Database {
       get_availability_summary: {
         Args: Record<string, never>;
         Returns: AvailabilitySummary[];
+      };
+      prepare_checkout: {
+        Args: { p_buyer_id: string; p_cart_id: string; p_checkout_key: string; p_lines: unknown; p_expires_at: string; p_provider: string };
+        Returns: { order_id: string; total_amount: number; existing: boolean };
+      };
+      claim_payment_creation: {
+        Args: { p_order_id: string; p_claim_token: string; p_now?: string };
+        Returns: { claimed: boolean; state: "READY" | "CLAIMED" | "IN_PROGRESS"; payment_id: string; reference?: string; snap_token?: string | null; provider: "mock" | "midtrans" };
+      };
+      finalize_payment_creation: {
+        Args: { p_payment_id: string; p_claim_token: string; p_provider: string; p_reference: string; p_snap_token: string | null; p_raw_response: unknown };
+        Returns: { state: "READY"; reference: string; snap_token: string | null; provider: "mock" | "midtrans" };
+      };
+      release_order_reservations: {
+        Args: { p_order_id: string; p_reservation_id?: string | null; p_reason?: string; p_event_key?: string | null };
+        Returns: { released_count: number; event_key: string };
+      };
+      process_payment_webhook: {
+        Args: { p_event_key: string; p_midtrans_order_id: string; p_payload: unknown; p_transaction_status: string; p_gross_amount: number };
+        Returns: { duplicate: boolean; paid?: boolean };
+      };
+      settle_paid_order: {
+        Args: { p_order_id: string };
+        Returns: { already_settled: boolean };
+      };
+      release_paid_order: {
+        Args: { p_order_id: string; p_event_key?: string | null };
+        Returns: { already_released: boolean };
+      };
+      claim_expired_allocation: {
+        Args: { p_allocation_id: string; p_now?: string };
+        Returns: { claimed: boolean; allocation_id?: string; request_id?: string; forecast_id?: string; committed_kg?: number };
+      };
+      process_allocation_fallback: {
+        Args: { p_allocation_id: string; p_event_key: string; p_shortfall_kg?: number | null };
+        Returns: { duplicate: boolean; promoted_count: number; remaining_kg: number };
+      };
+      commit_match_allocations: {
+        Args: { p_request_id: string; p_allocations: unknown; p_status: "MATCHED" | "PARTIAL"; p_shortfall_kg: number };
+        Returns: { ok: boolean };
       };
     };
     Enums: {

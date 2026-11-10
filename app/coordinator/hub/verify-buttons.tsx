@@ -10,7 +10,7 @@ export function VerifyButtons({ forecastId }: { forecastId: string }) {
   function submit(decision: "verified" | "rejected") {
     startTransition(async () => {
       const result = await verifyForecast(forecastId, decision);
-      if (result.error) setError(result.error);
+      if ("error" in result) setError(result.error ?? "Status listing gagal diperbarui.");
       else window.location.reload();
     });
   }

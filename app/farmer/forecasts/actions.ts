@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Grade } from "@/lib/database.types";
 import { validatePriceFloor } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, hasSupabaseAdminEnv } from "@/lib/supabase/admin";
 
 type ActionState = { error?: string } | null;
 
@@ -105,7 +106,16 @@ export async function closeForecast(forecastId: string) {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase
+    if (!hasSupabaseAdminEnv()) return;
+    const admin = createAdminClient();
+    const { data: forecast } = await admin
+      .from("harvest_forecasts")
+      .select("id, farmer_id, reserved_kg")
+      .eq("id", forecastId)
+      .single();
+    if (forecast?.farmer_id !== user.id || Number(forecast.reserved_kg) !== 0) return;
+
+    await admin
       .from("harvest_forecasts")
       .update({ status: "closed" })
       .eq("id", forecastId)
